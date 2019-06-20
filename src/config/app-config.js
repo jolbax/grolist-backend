@@ -5,7 +5,7 @@ const path = require("path");
 const passportConfig = require("./passport-config");
 
 const corsOptions = {
-  origin: "*",
+  origin: process.env.CORS_ORIGIN,
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   preflightContinue: false,
   optionsSuccessStatus: 204
