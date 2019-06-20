@@ -4,7 +4,7 @@ module.exports = {
   createList(req) {
     return List.create({
       title: req.body.title,
-      userId: 1
+      userId: req.user.id
     });
   },
   destroyList(list) {
