@@ -11,14 +11,28 @@ describe("routes: items", () => {
     this.list;
     this.item1;
     this.item2;
+    this.options = {};
     sequelize.sync({ force: true }).then(res => {
       (async () => {
         try {
-          this.user = await User.create({
-            username: "neo",
-            email: "neo@matrix.net",
-            password: "123123"
-          });
+          let userResp = await axios.post(
+            `http://localhost:${process.env.PORT}/api/users/create`,
+            {
+              username: "neo",
+              email: "neo@matrix.com",
+              password: "password",
+              passwordConfirmation: "password"
+            }
+          );
+          this.user = await userResp.data.user;
+
+          let authentication = await axios.post(
+            `http://localhost:${process.env.PORT}/api/users/log_in`,
+            { email: this.user.email, password: "password" }
+          );
+          this.options.headers = {
+            Authorization: `Bearer ${authentication.data.token}`
+          };
           this.list = await List.create({
             title: "Party list",
             userId: this.user.id
@@ -47,7 +61,7 @@ describe("routes: items", () => {
   describe("GET /:listId/items/:id", () => {
     it("should return the item associated with the ID", done => {
       axios
-        .get(`${base}/${this.list.id}/items/${this.item1.id}`)
+        .get(`${base}/${this.list.id}/items/${this.item1.id}`, this.options)
         .then(resp => {
           expect(resp.data.status).toBe("ok");
           expect(resp.data.item.name).toBe("Beer");
@@ -62,14 +76,15 @@ describe("routes: items", () => {
   });
 
   describe("DELETE /:listId/items/:id/delete", () => {
-    it("should delete the item associated with the ID", (done) => {
+    it("should delete the item associated with the ID", done => {
       (async () => {
         try {
           let itemBefore = await Item.findOne({
             where: { name: "Beer", quantity: 12 }
           });
           let resp = await axios.delete(
-            `${base}/${this.list.id}/items/${this.item1.id}/delete`
+            `${base}/${this.list.id}/items/${this.item1.id}/delete`,
+            this.options
           );
           let itemAfter = await Item.findOne({
             where: { name: "Beer", quantity: 12 }
@@ -89,16 +104,17 @@ describe("routes: items", () => {
   });
 
   describe("POST /:listId/items/:id/update", () => {
-    it("should update the item associated with the ID", (done) => {
+    it("should update the item associated with the ID", done => {
       (async () => {
         try {
-          let updatedItem = {name: "Bier", purchased: true}
+          let updatedItem = { name: "Bier", purchased: true };
           let itemBefore = await Item.findOne({
             where: { name: "Beer", purchased: false }
           });
           let resp = await axios.post(
             `${base}/${this.list.id}/items/${this.item1.id}/update`,
-            updatedItem
+            updatedItem,
+            this.options
           );
           let itemAfter = await Item.findOne({
             where: { name: "Bier", purchased: true }
@@ -130,7 +146,8 @@ describe("routes: items", () => {
         try {
           let resp = await axios.post(
             `${base}/${this.list.id}/items/create`,
-            newItem
+            newItem,
+            this.options
           );
           let item = await Item.findOne({
             where: { name: "paper cups", listId: this.list.id }

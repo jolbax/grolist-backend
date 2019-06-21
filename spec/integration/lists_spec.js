@@ -8,19 +8,34 @@ const sequelize = require("../../src/db/models").sequelize;
 describe("routes: links", () => {
   beforeEach(done => {
     this.user;
+    this.options = {};
     this.list;
     sequelize.sync({ force: true }).then(res => {
       (async () => {
         try {
-          this.user = await User.create({
-            username: "neo",
-            email: "neo@matrix.com",
-            password: "password"
-          });
+          let userResp = await axios.post(
+            `http://localhost:${process.env.PORT}/api/users/create`,
+            {
+              username: "neo",
+              email: "neo@matrix.com",
+              password: "password",
+              passwordConfirmation: "password"
+            }
+          );
+          this.user = await userResp.data.user;
+
           this.list = await List.create({
             title: "Party list",
             userId: this.user.id
           });
+          let authentication = await axios.post(
+            `http://localhost:${process.env.PORT}/api/users/log_in`,
+            { email: this.user.email, password: "password" }
+          );
+          this.options.headers = {
+            Authorization: `Bearer ${authentication.data.token}`
+          };
+
           done();
         } catch (err) {
           console.log(err);
@@ -38,7 +53,7 @@ describe("routes: links", () => {
       };
       (async () => {
         try {
-          let resp = await axios.post(`${base}/create`, newList);
+          let resp = await axios.post(`${base}/create`, newList, this.options);
           let list = await List.findOne({
             where: {
               title: "BBQ list",
@@ -61,7 +76,7 @@ describe("routes: links", () => {
       };
       (async () => {
         try {
-          let resp = await axios.post(`${base}/create`, newList);
+          let resp = await axios.post(`${base}/create`, newList, this.options);
           // let list = await List.findOne({
           //   where: {
           //     userId: this.user.id
@@ -89,7 +104,7 @@ describe("routes: links", () => {
           });
           let resp = await axios.post(
             `${base}/${this.list.id}/update`,
-            updateList
+            updateList, this.options
           );
           let listAfter = await List.findOne({
             where: { title: updateList.title }
@@ -110,7 +125,7 @@ describe("routes: links", () => {
   describe("GET /:id", () => {
     it("should return the list associated with the ID", done => {
       axios
-        .get(`${base}/${this.list.id}`)
+        .get(`${base}/${this.list.id}`, this.options)
         .then(resp => {
           expect(resp.data.status).toBe("ok");
           expect(resp.data.list.title).toBe("Party list");
@@ -127,7 +142,7 @@ describe("routes: links", () => {
     it("should destroy the associated list and linked items", done => {
       (async () => {
         try {
-          let resp = await axios.delete(`${base}/${this.list.id}/delete`);
+          let resp = await axios.delete(`${base}/${this.list.id}/delete`, this.options);
           let list = await List.findOne({
             where: { title: "Party list", userId: this.user.id }
           });

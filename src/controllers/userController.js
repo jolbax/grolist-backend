@@ -8,11 +8,20 @@ const Authorizer = require("../policies/user");
 module.exports = {
   create(req, res, next) {
     let hashedPassword;
-    if (req.body.password === req.body.passwordConfirmation) {
+    let simpleValidation =
+      req.body.username &&
+      req.body.email &&
+      req.body.password &&
+      req.body.passwordConfirmation;
+    if (!simpleValidation) res.status(400).json({ error: "Missing information" });
+    if (
+      simpleValidation &&
+      req.body.password === req.body.passwordConfirmation
+    ) {
       const salt = bcrypt.genSaltSync();
       hashedPassword = bcrypt.hashSync(req.body.password, salt);
     } else {
-      throw new Error("Password does not match confirmation");
+      res.status(400).json({ error: "Password validation failed" });
     }
     let newUser = {
       username: req.body.username ? req.body.username.toLowerCase() : null,
@@ -30,7 +39,6 @@ module.exports = {
       });
   },
   apiLogin(req, res, next) {
-
     if (!req.body.email || !req.body.password) {
       return res.status(400).json({
         message: "Something is not right with your credentials"
@@ -42,12 +50,14 @@ module.exports = {
         res.status(500).json({ err });
       }
       const payload = { id: req.user.id, email: req.user.email };
-      const token = jwt.sign(
-        payload,
-        process.env.JWTSECRET,
-        { expiresIn: "30m" }
-      );
-      let user = { id: req.user.id, username: req.user.username, email: req.user.email}
+      const token = jwt.sign(payload, process.env.JWTSECRET, {
+        expiresIn: "30m"
+      });
+      let user = {
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email
+      };
       return res.status(200).json({ auth: true, user, token });
     });
   },
